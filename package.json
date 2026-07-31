@@ -7,10 +7,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
+    "@supabase/supabase-js": "^2.111.0",
     "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-query-devtools": "^5.101.2",
     "axios": "^1.18.1",
@@ -24,6 +27,7 @@
     "react-hook-form": "^7.81.0",
     "react-hot-toast": "^2.6.0",
     "react-router": "^8.2.0",
+    "react-router-dom": "^7.11.0",
     "recharts": "^3.9.2",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3",
