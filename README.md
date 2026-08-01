@@ -26,3 +26,5 @@ npm install react-router axios @tanstack/react-query @tanstack/react-query-devto
 ``` bash
 npm install -D tailwindcss@3 postcss autoprefixer prettier prettier-plugin-tailwindcss eslint-config-prettier vitest jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event @types/node
 ```
+
+## 계획
