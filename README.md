@@ -106,11 +106,11 @@ VITE_API_BASE_URL=/api
 npm run dev
 ```
 
-기본 개발 주소는 [http://localhost:5173](http://localhost:5173)입니다. 개발 서버는 Docker 또는 devcontainer 외부에서도 접근할 수 있도록 `--host` 옵션으로 실행됩니다.
+통합 개발 환경의 공식 브라우저 주소는 [http://localhost:8080](http://localhost:8080)입니다. Edge Nginx가 React route와 HMR을 내부 Vite `:5173`으로, `/api/*`를 FastAPI `:8000`으로 전달합니다.
 
-VS Code devcontainer를 사용한다면 `PORTS` 패널에서 `5173` 포트를 Forward해야 합니다. 일반 Docker 컨테이너라면 실행 시 `5173:5173` 포트 매핑이 필요합니다.
+VS Code Dev Container에서는 `8080`만 Forward하면 됩니다. Vite를 Docker 외부에서 단독 실행하는 경우에만 `npm run dev`의 `5173`을 직접 사용합니다.
 
-> 현재 Vite 설정과 기본 Nginx 설정에는 `/api` 개발 프록시가 없습니다. `VITE_API_BASE_URL=/api`는 동일 origin에 API가 연결된 환경을 전제로 합니다. 로컬에서 백엔드를 별도 주소로 실행한다면 브라우저가 접근할 수 있는 FastAPI base URL을 설정하고 백엔드 CORS 정책도 함께 구성해야 합니다.
+`VITE_API_BASE_URL`은 개발과 운영 모두 `/api`를 유지합니다. API 함수는 endpoint에서 중복 `/api` prefix를 제거하므로 `/api/api/*` 요청을 만들지 않습니다.
 
 ### 빌드 및 로컬 미리보기
 

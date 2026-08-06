@@ -1,0 +1,136 @@
+name: React CI and image
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: react-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test -- --run
+
+      - name: Build application
+        env:
+          VITE_API_BASE_URL: /api
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_ANON_KEY: public-ci-placeholder
+        run: npm run build
+
+      - name: Validate linux/amd64 image build
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            --file dockerfile \
+            --build-arg VITE_API_BASE_URL=/api \
+            --build-arg VITE_SUPABASE_URL=https://example.invalid \
+            --build-arg VITE_SUPABASE_ANON_KEY=public-ci-placeholder \
+            --tag watch-up-react:ci .
+
+      - name: Validate runtime Nginx and SPA fallback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker run --rm watch-up-react:ci nginx -t
+          docker run -d --name watch-up-react-ci -p 127.0.0.1:18080:80 watch-up-react:ci
+          cleanup() { docker rm -f watch-up-react-ci >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          for _ in {1..20}; do
+            if curl --fail --silent --show-error http://127.0.0.1:18080/health >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl --fail --silent --show-error http://127.0.0.1:18080/ -o root.html
+          curl --fail --silent --show-error http://127.0.0.1:18080/login -o login.html
+          grep -qi '<html' root.html
+          grep -qi '<html' login.html
+
+          asset_path="$(grep -oE '/assets/[^"]+\.(js|css)' root.html | head -n 1)"
+          test -n "$asset_path"
+          curl --fail --silent --show-error "http://127.0.0.1:18080$asset_path" >/dev/null
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/assets/not-found.js)" = 404
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate production public configuration
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        shell: bash
+        run: |
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_ANON_KEY"
+
+      - name: Set image name
+        id: image
+        shell: bash
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          echo "name=ghcr.io/${repository}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push immutable image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
+          build-args: |
+            VITE_API_BASE_URL=/api
+            VITE_SUPABASE_URL=${{ vars.VITE_SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ vars.VITE_SUPABASE_ANON_KEY }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
