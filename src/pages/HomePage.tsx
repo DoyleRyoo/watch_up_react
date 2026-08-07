@@ -8,6 +8,8 @@ import { useAuthStore } from '../stores/authStore'
 import { useWatchupStore } from '../stores/watchupStore'
 
 const SAFE_ERROR = '로그아웃에 실패했습니다. 다시 시도해주세요.'
+// 개발 Strict Mode의 effect 재실행 사이에는 요청을 유지하고, 실제로 대시보드를
+// 떠나 모든 mount가 사라진 경우에만 공유 store의 진행 중 요청을 취소한다.
 let dashboardMountCount = 0
 
 export function HomePage() {

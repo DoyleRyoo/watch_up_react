@@ -10,6 +10,10 @@ import {
 } from '../features/watchup/api'
 import type { CoinChart, SearchResult, WatchlistItem } from '../features/watchup/types'
 
+/*
+ * 검색·등록·목록·선택·차트의 서버 상태와 요청 생명주기를 조정한다.
+ * 서버 목록 순서를 그대로 보존하고, mutation 성공 후에는 GET 결과로 화면을 재조정한다.
+ */
 type RegistrationNotification = {
   id: number
   message: string
@@ -84,6 +88,8 @@ const initialState: WatchupDataState = {
   chartError: null,
 }
 
+// AbortController는 전송을 중단하고 requestId는 이미 완료 직전인 오래된 응답까지 막는다.
+// 이 실행 제어 값들은 렌더링 대상이 아니므로 Zustand의 공개 UI 상태에 넣지 않는다.
 let searchRequestId = 0
 let searchController: AbortController | null = null
 let submittedSearchQuery: string | null = null
@@ -174,6 +180,8 @@ export const useWatchupStore = create<WatchupState>((set, get) => {
         if (requestId !== watchlistRequestId || controller.signal.aborted) return 'cancelled'
 
         const previous = get()
+        // 클라이언트에서 재정렬하지 않고 서버 순서를 보존한다. 기존 선택은 id로
+        // 새 응답 객체에 연결하고, 삭제된 선택만 서버의 첫 항목으로 전환한다.
         const refreshedSelection = previous.selectedCoin
           ? response.data.find((item) => item.id === previous.selectedCoin?.id)
           : undefined
@@ -185,6 +193,8 @@ export const useWatchupStore = create<WatchupState>((set, get) => {
               ? response.data[0]
               : null
 
+        // 같은 마켓의 차트만 유지해야 목록 갱신 중 가격 정보가 바뀌어도 불필요한
+        // 재요청을 피하면서 다른 코인의 오래된 차트를 노출하지 않는다.
         const chartCanRemain = Boolean(
           nextSelectedCoin
           && (nextSelectedCoin.status === 'ACTIVE' || nextSelectedCoin.status === 'CAUTION')
@@ -318,6 +328,8 @@ export const useWatchupStore = create<WatchupState>((set, get) => {
             searchError: null,
             hasSearched: false,
           })
+          // 등록 결과로 목록을 낙관적으로 만들지 않는다. 서버의 정렬·상태·시세가
+          // 결합된 GET 결과를 사용하되, 기존 선택이 있으면 그대로 유지한다.
           const refreshResult = await requestWatchlist(false, true)
           if (requestId === registrationRequestId && refreshResult === 'error') {
             set({ registrationRefreshFailed: true })
@@ -363,6 +375,8 @@ export const useWatchupStore = create<WatchupState>((set, get) => {
           await deleteWatchlistItem(id, controller.signal)
           if (requestId !== deletionRequestId || controller.signal.aborted) return
 
+          // DELETE 200 이후에도 서버 목록을 다시 받아야 RLS가 허용한 실제 삭제와
+          // 남은 첫 항목 선택을 한 흐름으로 확정할 수 있다.
           const refreshResult = await requestWatchlist(true, true)
           if (requestId === deletionRequestId && refreshResult === 'error') {
             set({ deleteRefreshFailed: true })
@@ -433,6 +447,8 @@ export const useWatchupStore = create<WatchupState>((set, get) => {
       const request = getCoinChart(selectedCoin.marketCode, controller.signal)
         .then((response) => {
           const currentSelection = get().selectedCoin
+          // abort와 별개로 현재 선택과 응답의 marketCode를 함께 확인해 빠른 전환에서
+          // 늦게 도착한 이전 차트가 최신 상세를 덮어쓰지 못하게 한다.
           if (
             requestId !== chartRequestId
             || controller.signal.aborted
