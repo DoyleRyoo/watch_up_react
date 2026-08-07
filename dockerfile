@@ -15,8 +15,8 @@ ARG VITE_API_BASE_URL=/api
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 
-# These VITE_* values are intentionally public browser configuration. Never pass
-# server-only secrets (service_role, OAuth client secrets, or deployment tokens).
+# VITE_* 값은 빌드 산출물에 포함되는 공개 브라우저 설정이다. service_role,
+# OAuth Client Secret, 배포 token 같은 서버 전용 secret은 build arg로 넘기지 않는다.
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
     VITE_SUPABASE_URL=${VITE_SUPABASE_URL} \
     VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
