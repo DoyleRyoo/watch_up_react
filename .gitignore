@@ -126,6 +126,10 @@ web_modules/
 
 # dotenv environment variable files
 .env
+.env.*
+!.env.example
+!.env.development.example
+!.env.production.example
 .env.development.local
 .env.test.local
 .env.production.local
@@ -247,4 +251,10 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,visualstudiocode,react,node
+AGENTS.md
+planning_v1.5.md
+WatchUp_v1.4_functions.md
+develop_steps.md
+watchup_wireframe.png
+
+# End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,visualstudiocode,react,node
